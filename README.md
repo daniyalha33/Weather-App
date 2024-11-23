@@ -1,2 +1,3 @@
 # Weather-App
-Weather App using Api build in mern stack
+Weather App using Api build in html css javascript
+
