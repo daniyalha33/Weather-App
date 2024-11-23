@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="search">
+            <input class="searchInput" type="text" placeholder="Enter the city name" spellcheck="false">
+            <button class="btn"><img src="images/search.png" alt="Search"></button>
+        </div>
+         <div class="previous-searches">
+            <h3>Previous Searches</h3>
+            <ul id="cityList"></ul> <!-- List to show previously searched cities -->
+            <!-- Clear History Button -->
+            <button class="clear-history-btn">Clear Search History</button>
+        </div>
+        <div class="weather">
+            <img class="weather-icon" src="images/rain.png" alt="Weather Icon">
+            <h1 class="temp">22°C</h1>
+            <h2 class="city">New York</h2>
+            <div class="details">
+                <div class="col">
+                    <img src="images/humidity.png" alt="Humidity">
+                    <p class="humidity">50%</p>
+                    <p>Humidity</p>
+                </div>
+                <div class="col">
+                    <img src="images/wind.png" alt="Wind Speed">
+                    <p class="wind">15km/hr</p>
+                    <p>Wind Speed</p>
+                </div>
+            </div>
+        </div>
+        <!-- Forecast container for the next 5 days -->
+        <div class="forecast-container">
+            <h3>5-Day Forecast</h3>
+            <div class="forecast"></div>
+        </div>
+
+        <!-- Section to show previously searched cities -->
+       
+
+        <!-- Toggle Temperature Unit -->
+        <div class="toggle-temp-unit">
+            <button class="toggle-btn">Switch to Fahrenheit</button>
+        </div>
+    </div>
+
+    <script>
+        const searchBox = document.querySelector(".searchInput");
+        const searchBtn = document.querySelector(".btn");
+        const apiKey = "ea911fa7bf12239e5680f9ca4a7a9d80"; // Replace with your OpenWeather API key
+        const weatherIcon = document.querySelector(".weather-icon");
+        const forecastContainer = document.querySelector(".forecast");
+        const cityListElement = document.getElementById("cityList");
+        const clearHistoryBtn = document.querySelector(".clear-history-btn");
+        const tempDisplay = document.querySelector(".temp");
+        const toggleBtn = document.querySelector(".toggle-btn");
+        let isCelsius = true;  // Default to Celsius
+
+        // On page load, retrieve and display previous searches
+        window.onload = () => {
+            const savedCities = JSON.parse(localStorage.getItem("weatherCities")) || [];
+            savedCities.forEach(city => {
+                displayCity(city);
+            });
+
+            // Check saved temperature unit preference
+            const savedUnit = localStorage.getItem("tempUnit");
+            if (savedUnit) {
+                isCelsius = savedUnit === "Celsius";
+                updateToggleButton();
+            }
+        }
+
+        // Function to fetch and display weather for a city
+       async function checkWeather(city) {
+    const appUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}`;
+
+    try {
+        const response = await fetch(appUrl);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        const forecast = data.list[0]; // Taking the first entry as current weather
+
+        document.querySelector(".city").innerHTML = data.city.name;
+
+        let temp = forecast.main.temp;
+        if (isCelsius) {
+            temp = Math.round(temp - 273.15); // Convert temp to Celsius
+        } else {
+            temp = Math.round((temp - 273.15) * 9 / 5 + 32); // Convert temp to Fahrenheit
+        }
+
+        tempDisplay.innerHTML = `${temp}°${isCelsius ? "C" : "F"}`;
+        document.querySelector(".humidity").innerHTML = `${forecast.main.humidity}%`;
+        document.querySelector(".wind").innerHTML = `${forecast.wind.speed} km/hr`;
+
+        const weatherMain = data.list[0].weather[0].main.toLowerCase();
+        let iconSrc = "";
+        switch (weatherMain) {
+            case "clouds":
+                iconSrc = "images/clouds.png";
+                break;
+            case "drizzle":
+                iconSrc = "images/drizzle.png";
+                break;
+            case "rain":
+                iconSrc = "images/rain.png";
+                break;
+            case "snow":
+                iconSrc = "images/snow.png";
+                break;
+            case "clear":
+                iconSrc = "images/clear.png";
+                break;
+            case "mist":
+            case "smoke":
+            case "haze":
+            case "dust":
+            case "fog":
+                iconSrc = "images/mist.png";
+                break;
+            default:
+                iconSrc = "images/weather.png";
+                break;
+        }
+        document.querySelector(".weather-icon").src = iconSrc;
+
+        forecastContainer.innerHTML = ""; // Clear existing cards
+        const dailyData = data.list.filter((_, index) => index % 8 === 0).slice(0, 5); // 8 entries per day
+
+        dailyData.forEach((day) => {
+            const windSpeedValue = day.wind.speed.toFixed(1); // Wind speed in m/s
+            const humidityValue = day.main.humidity; // Humidity in percentage
+            const date = new Date(day.dt_txt).toLocaleDateString("en", { 
+                weekday: "short", 
+                day: "numeric", 
+                month: "short" 
+            }); // Format date
+            let forecastTemp;
+            if (isCelsius) {
+                forecastTemp = Math.round(day.main.temp - 273.15);
+            } else {
+                forecastTemp = Math.round((day.main.temp - 273.15) * 9 / 5 + 32); // Convert temp to Fahrenheit
+            }
+
+            const forecastCard = document.createElement("div");
+            forecastCard.className = "forecast-card";
+            forecastCard.innerHTML = `
+                <p><strong>${date}</strong></p>
+                <img src="http://openweathermap.org/img/wn/${day.weather[0].icon}.png" alt="${day.weather[0].description}">
+                <p>Temp: ${forecastTemp}°${isCelsius ? "C" : "F"}</p>
+                <p>Wind: ${windSpeedValue} m/s</p>
+                <p>Humidity: ${humidityValue}%</p>
+            `;
+            forecastContainer.appendChild(forecastCard);
+        });
+
+        const savedCities = JSON.parse(localStorage.getItem("weatherCities")) || [];
+        if (!savedCities.includes(city)) {
+            savedCities.push(city); // Append new city
+            localStorage.setItem("weatherCities", JSON.stringify(savedCities));
+            displayCity(city); // Display only if it's not already in the list
+        }
+
+    } catch (error) {
+        console.error('Error fetching data:', error);
+        alert('Failed to fetch weather data. Please try again.');
+    }
+}
+
+
+        // Display a city in the list of previous searches
+        function displayCity(city) {
+            const cityElement = document.createElement("li");
+            cityElement.textContent = city;
+            cityElement.addEventListener("click", () => {
+                checkWeather(city);  // Fetch weather for the clicked city
+            });
+            cityListElement.appendChild(cityElement);
+        }
+
+        // Clear search history
+        function clearSearchHistory() {
+            cityListElement.innerHTML = ""; // Clear the list
+            localStorage.removeItem("weatherCities"); // Clear from localStorage
+        }
+
+        // Toggle between Celsius and Fahrenheit
+        function updateToggleButton() {
+            toggleBtn.innerHTML = `Switch to ${isCelsius ? "Fahrenheit" : "Celsius"}`;
+        }
+
+        function toggleTemperatureUnit() {
+            isCelsius = !isCelsius;  // Toggle between Celsius and Fahrenheit
+            localStorage.setItem("tempUnit", isCelsius ? "Celsius" : "Fahrenheit");
+            updateToggleButton();
+            const city = document.querySelector(".city").innerHTML;
+            if (city) {
+                checkWeather(city);  // Refresh the weather display with the new unit
+            }
+        }
+
+        // Event listeners
+        searchBtn.addEventListener("click", () => {
+            const city = searchBox.value.trim();
+            if (city) {
+                checkWeather(city);
+            } else {
+                alert("Please enter a city name.");
+            }
+        });
+
+        clearHistoryBtn.addEventListener("click", clearSearchHistory);
+        toggleBtn.addEventListener("click", toggleTemperatureUnit);
+    </script>
+</body>
+</html>
